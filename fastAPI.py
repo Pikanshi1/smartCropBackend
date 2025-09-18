@@ -81,7 +81,7 @@ async def predict(file: UploadFile = File(...)):
 
     # Open uploaded image
     image = Image.open(file.file).convert("RGB")
-    image = image.resize((224, 224))  # match model input size
+    image = image.resize((128, 128))  # match model input size
 
     # Preprocess
     img_array = np.array(image) / 255.0
