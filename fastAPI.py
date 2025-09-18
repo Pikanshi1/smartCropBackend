@@ -84,8 +84,10 @@ async def predict(file: UploadFile = File(...)):
     image = image.resize((128, 128))  # match model input size
 
     # Preprocess
-    img_array = np.array(image) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)  # shape: (1, 224, 224, 3)
+    # img_array = np.array(image) / 255.0
+    # img_array = np.expand_dims(img_array, axis=0)  # shape: (1, 224, 224, 3)
+    img_array = np.array(image, dtype=np.float32) / 255.0
+    img_array = img_array[np.newaxis, ...]
 
     # Predict
     prediction = model.predict(img_array)
