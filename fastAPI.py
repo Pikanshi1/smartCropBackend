@@ -1,4 +1,8 @@
 import os
+# Force CPU and suppress TF warnings
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 
 # -----------------------------
 # Set model path depending on OS
@@ -10,9 +14,6 @@ else:  # Linux / Render
 
 print(f"Model path set to: {MODEL_PATH}")
 
-# Force CPU and suppress TF warnings
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 from fastapi import FastAPI, UploadFile, File
 import uvicorn
