@@ -78,7 +78,7 @@ async def predict(file: UploadFile = File(...)):
         return {"error": "Model not loaded."}
     try:
         image = Image.open(file.file).convert("RGB")
-        image = image.resize((128, 128))  # match model input size
+        image = image.resize((64, 64))  # match model input size
         img_array = np.array(image, dtype=np.float32) / 255.0
         img_array = img_array[np.newaxis, ...]
 
