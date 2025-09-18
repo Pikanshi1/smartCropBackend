@@ -1,11 +1,14 @@
 import os
+import warnings
+# -----------------------------
 # Force CPU and suppress TF warnings
+# -----------------------------
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
+warnings.filterwarnings("ignore")
 
 # -----------------------------
-# Set model path depending on OS
+# Set model path
 # -----------------------------
 if os.name == "nt":  # Windows
     MODEL_PATH = "disease.h5"
@@ -13,7 +16,6 @@ else:  # Linux / Render
     MODEL_PATH = "/tmp/disease.h5"
 
 print(f"Model path set to: {MODEL_PATH}")
-
 
 from fastapi import FastAPI, UploadFile, File
 import uvicorn
@@ -29,21 +31,16 @@ FILE_ID = "1AesQxhc6UsZoPm3JCY4VRsbkdVwtWx3n"  # your Google Drive file ID
 URL = f"https://drive.google.com/uc?id={FILE_ID}"
 
 def download_model(url, path):
-    """Download model from Google Drive only if it does not exist."""
     if not os.path.exists(path):
-        try:
-            print("📥 Downloading model from Google Drive...")
-            gdown.download(url, path, quiet=False)
-            if os.path.exists(path):
-                print(f"✅ Download completed: {path}")
-            else:
-                print("❌ Download failed: File not found after download.")
-        except Exception as e:
-            print(f"❌ Error downloading model: {e}")
+        print("📥 Downloading model from Google Drive...")
+        gdown.download(url, path, quiet=False)
+        if os.path.exists(path):
+            print(f"✅ Download completed: {path}")
+        else:
+            print("❌ Download failed.")
     else:
         print(f"✅ Model already exists: {path}")
 
-# Download model if needed
 download_model(URL, MODEL_PATH)
 
 # -----------------------------
@@ -60,7 +57,7 @@ except Exception as e:
 # -----------------------------
 # Class names
 # -----------------------------
-CLASS_NAMES = [f"Class_{i}" for i in range(38)]  # replace with your actual class names
+CLASS_NAMES = [f"Class_{i}" for i in range(38)]
 
 # -----------------------------
 # FastAPI app
@@ -79,35 +76,31 @@ def health():
 async def predict(file: UploadFile = File(...)):
     if model is None:
         return {"error": "Model not loaded."}
+    try:
+        image = Image.open(file.file).convert("RGB")
+        image = image.resize((128, 128))  # match model input size
+        img_array = np.array(image, dtype=np.float32) / 255.0
+        img_array = img_array[np.newaxis, ...]
 
-    # Open uploaded image
-    image = Image.open(file.file).convert("RGB")
-    image = image.resize((128, 128))  # match model input size
+        prediction = model.predict(img_array)
+        predicted_class = int(np.argmax(prediction))
+        confidence = float(np.max(prediction))
 
-    # Preprocess
-    # img_array = np.array(image) / 255.0
-    # img_array = np.expand_dims(img_array, axis=0)  # shape: (1, 224, 224, 3)
-    img_array = np.array(image, dtype=np.float32) / 255.0
-    img_array = img_array[np.newaxis, ...]
-
-    # Predict
-    prediction = model.predict(img_array)
-    predicted_class = int(np.argmax(prediction))
-    confidence = float(np.max(prediction))
-
-    return {
-        "predicted_class": predicted_class,
-        "class_name": CLASS_NAMES[predicted_class],
-        "confidence": confidence
-    }
+        return {
+            "predicted_class": predicted_class,
+            "class_name": CLASS_NAMES[predicted_class],
+            "confidence": confidence
+        }
+    except Exception as e:
+        return {"error": f"Prediction failed: {e}"}
 
 # -----------------------------
-# Run server (for local testing)
+# Run server (only for local use)
 # -----------------------------
 if __name__ == "__main__":
     uvicorn.run(
         "fastAPI:app",
         host="0.0.0.0",
-        port=int(os.environ.get("PORT", 8000)),
-        reload=True
+        port=int(os.environ.get("PORT", 8000))
+        # ⚠️ Removed reload=True for Render
     )
