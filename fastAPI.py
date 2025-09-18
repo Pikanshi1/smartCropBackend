@@ -1,5 +1,18 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # suppress TF info/warning messages
+
+# -----------------------------
+# Set model path depending on OS
+# -----------------------------
+if os.name == "nt":  # Windows
+    MODEL_PATH = "disease.h5"
+else:  # Linux / Render
+    MODEL_PATH = "/tmp/disease.h5"
+
+print(f"Model path set to: {MODEL_PATH}")
+
+# Force CPU and suppress TF warnings
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 from fastapi import FastAPI, UploadFile, File
 import uvicorn
@@ -9,10 +22,9 @@ from PIL import Image
 import gdown
 
 # -----------------------------
-# Model configuration
+# Google Drive model configuration
 # -----------------------------
-MODEL_PATH = "disease.h5"
-FILE_ID = "1AesQxhc6UsZoPm3JCY4VRsbkdVwtWx3n"  # Replace with your actual file ID
+FILE_ID = "1AesQxhc6UsZoPm3JCY4VRsbkdVwtWx3n"  # your Google Drive file ID
 URL = f"https://drive.google.com/uc?id={FILE_ID}"
 
 def download_model(url, path):
@@ -30,13 +42,19 @@ def download_model(url, path):
     else:
         print(f"✅ Model already exists: {path}")
 
-# Download the model if needed
+# Download model if needed
 download_model(URL, MODEL_PATH)
 
-# Load the model once at startup
-print("🔄 Loading the model...")
-model = load_model(MODEL_PATH)
-print("✅ Model loaded successfully.")
+# -----------------------------
+# Load the model
+# -----------------------------
+try:
+    print("🔄 Loading the model...")
+    model = load_model(MODEL_PATH)
+    print("✅ Model loaded successfully.")
+except Exception as e:
+    print(f"❌ Error loading model: {e}")
+    model = None
 
 # -----------------------------
 # Class names
@@ -52,11 +70,18 @@ app = FastAPI(title="Plant Disease Prediction API")
 def home():
     return {"message": "Plant Disease Prediction API is running"}
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    # Open the uploaded image
+    if model is None:
+        return {"error": "Model not loaded."}
+
+    # Open uploaded image
     image = Image.open(file.file).convert("RGB")
-    image = image.resize((224, 224))   # match model input size
+    image = image.resize((224, 224))  # match model input size
 
     # Preprocess
     img_array = np.array(image) / 255.0
@@ -74,7 +99,12 @@ async def predict(file: UploadFile = File(...)):
     }
 
 # -----------------------------
-# Run server
+# Run server (for local testing)
 # -----------------------------
 if __name__ == "__main__":
-    uvicorn.run("fastAPI:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=True)
+    uvicorn.run(
+        "fastAPI:app",
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8000)),
+        reload=True
+    )
