@@ -105,6 +105,38 @@ async def predict(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
 
 # -----------------------------
+# Debug endpoint to see raw probabilities
+# -----------------------------
+@app.post("/predict_debug", response_class=JSONResponse)
+async def predict_debug(file: UploadFile = File(...)):
+    """
+    Returns raw output probabilities for all classes.
+    Useful to debug why model predicts same class.
+    """
+    if not file:
+        raise HTTPException(status_code=400, detail="No file uploaded.")
+    try:
+        shape = input_details[0]['shape']
+        image = Image.open(file.file).convert("RGB")
+        image = image.resize((shape[2], shape[1]))
+        img_array = np.expand_dims(np.array(image, dtype=np.uint8), axis=0)
+
+        # Run inference
+        interpreter.set_tensor(input_details[0]['index'], img_array)
+        interpreter.invoke()
+        output_data = interpreter.get_tensor(output_details[0]['index'])
+
+        return {
+            "raw_output": output_data.tolist(),  # Probabilities / logits for all classes
+            "predicted_class": int(np.argmax(output_data)),
+            "class_name": CLASS_NAMES[int(np.argmax(output_data))],
+            "confidence": float(np.max(output_data))
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
+
+# -----------------------------
 # Run server
 # -----------------------------
 if __name__ == "__main__":
