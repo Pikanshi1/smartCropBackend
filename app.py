@@ -25,13 +25,13 @@ else:  # Linux / Render
     TFLITE_PATH = "/tmp/disease.tflite"
 
 # -----------------------------
-# Google Drive TFLite file ID
+# Google Drive TFLite file ID and URL
 # -----------------------------
 FILE_ID = "1gVr_7OuZi5Of7wb0YZRfg76K3_47qJCS"
 DRIVE_URL = f"https://drive.google.com/uc?id={FILE_ID}"
 
 # -----------------------------
-# Download TFLite model if not exists
+# Download TFLite model if not exists (with retry)
 # -----------------------------
 if not os.path.exists(TFLITE_PATH):
     import gdown
@@ -55,6 +55,7 @@ if not os.path.exists(TFLITE_PATH):
 # -----------------------------
 # Load TFLite model
 # -----------------------------
+interpreter = None
 try:
     print("🔄 Loading the TFLite model...")
     interpreter = tf.lite.Interpreter(model_path=TFLITE_PATH)
@@ -89,17 +90,13 @@ def health():
 async def predict(
     file: UploadFile = File(..., description="Upload a leaf image (.jpg or .png) via form-data")
 ):
-    """
-    Accepts a file via form-data (not JSON) and returns prediction as JSON:
-    {
-        "predicted_class": int,
-        "class_name": str,
-        "confidence": float
-    }
-    """
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded.")
-    
+
+    if interpreter is None:
+        # If model is still downloading or failed
+        raise HTTPException(status_code=503, detail="Model not ready, please try again in a few seconds.")
+
     try:
         # Preprocess image
         input_shape = input_details[0]['shape']
@@ -134,5 +131,5 @@ if __name__ == "__main__":
         "app:app",
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 8000)),
-        reload=True  # Use reload=True locally, set False on Render
+        reload=True  # True locally, False on Render
     )
