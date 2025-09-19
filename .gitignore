@@ -9,5 +9,4 @@ __pycache__/
 Thumbs.db
 
 # Ignore local model files (you do NOT want to push disease.tflite)
-*.tflite
 *.h5
