@@ -1,3 +1,2 @@
 *.h5 filter=lfs diff=lfs merge=lfs -text
 disease.tflite !text !filter !merge !diff
-*.tflite filter=lfs diff=lfs merge=lfs -text
